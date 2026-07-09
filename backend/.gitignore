@@ -1,0 +1,14 @@
+# Environments
+backend/venv/
+venv/
+env/
+.env
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Supabase / DB / API Keys
+.env.*
