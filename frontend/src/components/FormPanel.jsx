@@ -48,7 +48,7 @@ const AnimatedTextarea = ({ value, ...props }) => {
   );
 };
 
-const AnimatedSelect = ({ value, ...props }) => {
+const AnimatedRadioGroup = ({ value, name, onChange, options }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const prevValue = useRef(value);
 
@@ -62,11 +62,23 @@ const AnimatedSelect = ({ value, ...props }) => {
   }, [value]);
 
   return (
-    <select 
-      {...props} 
-      value={value || ''} 
-      className={`${props.className} ${isAnimating ? 'field-updated' : ''}`}
-    />
+    <div 
+      style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', padding: '0.5rem', borderRadius: '8px' }} 
+      className={isAnimating ? 'field-updated' : ''}
+    >
+      {options.map(opt => (
+        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input 
+            type="radio" 
+            name={name} 
+            value={opt.value} 
+            checked={value === opt.value || (!value && opt.value === 'Neutral')}
+            onChange={onChange}
+          />
+          {opt.label}
+        </label>
+      ))}
+    </div>
   );
 };
 
@@ -142,16 +154,16 @@ const FormPanel = () => {
         
         <div className="form-group">
           <label className="form-label">Sentiment</label>
-          <AnimatedSelect 
+          <AnimatedRadioGroup 
             name="sentiment" 
-            value={formState.sentiment || 'Neutral'} 
+            value={formState.sentiment} 
             onChange={handleChange} 
-            className="form-select"
-          >
-            <option value="Positive">Positive</option>
-            <option value="Neutral">Neutral</option>
-            <option value="Negative">Negative</option>
-          </AnimatedSelect>
+            options={[
+              { value: 'Positive', label: '😊 Positive' },
+              { value: 'Neutral', label: '😐 Neutral' },
+              { value: 'Negative', label: '🙁 Negative' }
+            ]}
+          />
         </div>
 
         {/* Arrays for Materials & Samples read-only views for demo purposes */}
