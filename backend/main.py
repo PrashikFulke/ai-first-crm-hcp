@@ -91,9 +91,28 @@ def create_interaction(
 ):
     """Handles nested form submission, saving all related records in a single transaction."""
     try:
+        actual_hcp_id = interaction.hcp_id
+
+        # If no ID was provided, or if the provided ID doesn't exist in the DB
+        if not actual_hcp_id or not db.query(models.HCP).filter(models.HCP.id == actual_hcp_id).first():
+            # Fallback to the provided name, or a default
+            fallback_name = interaction.hcp_name if interaction.hcp_name else "Unknown HCP"
+
+            # Check if an HCP with this name already exists to avoid duplicates
+            existing_hcp = db.query(models.HCP).filter(models.HCP.name == fallback_name).first()
+
+            if existing_hcp:
+                actual_hcp_id = existing_hcp.id
+            else:
+                # Create a new HCP on the fly
+                new_hcp = models.HCP(name=fallback_name, specialty="General")
+                db.add(new_hcp)
+                db.flush() # Flush to get the new ID
+                actual_hcp_id = new_hcp.id
+
         # 1. Main Interaction
         db_interaction = models.Interaction(
-            hcp_id=interaction.hcp_id,
+            hcp_id=actual_hcp_id,
             interaction_type=interaction.interaction_type,
             interaction_date=interaction.interaction_date,
             interaction_time=interaction.interaction_time,

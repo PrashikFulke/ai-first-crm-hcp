@@ -57,7 +57,7 @@ def edit_interaction(correction_text: str, current_form: dict) -> str:
         prompt = (
             f"Current form state: {json.dumps(current_form)}\n"
             f"Correction requested: {correction_text}\n"
-            f"Output only the fields that need to be updated. Do not overwrite valid data unless explicitly corrected."
+            f"Only return the specific fields that the user explicitly wants to change. Do not return or guess any other fields."
         )
         result = structured_llm.invoke(prompt)
         # Exclude unset fields to generate a clean patch

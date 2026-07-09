@@ -67,7 +67,8 @@ def state_synchronizer(state: AgentState):
                 data = json.loads(msg.content)
                 if "error" not in data:
                     for k, v in data.items():
-                        if v is not None and v != [] and k not in ["history", "follow_ups", "resolved"]:
+                        # Only update if the value is meaningful and explicitly provided
+                        if v is not None and v != "" and v != [] and v != "HCP" and k not in ["history", "follow_ups", "resolved"]:
                             pending_updates[k] = v
             except json.JSONDecodeError:
                 pass

@@ -1,7 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { submitInteraction } from '../services/api';
 import { updateFormState, resetForm } from '../store/formSlice';
+
+// Helper component for animated inputs
+const AnimatedInput = ({ value, ...props }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => setIsAnimating(false), 1500);
+      prevValue.current = value;
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+
+  return (
+    <input 
+      {...props} 
+      value={value || ''} 
+      className={`${props.className} ${isAnimating ? 'field-updated' : ''}`}
+    />
+  );
+};
+
+const AnimatedTextarea = ({ value, ...props }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => setIsAnimating(false), 1500);
+      prevValue.current = value;
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+
+  return (
+    <textarea 
+      {...props} 
+      value={value || ''} 
+      className={`${props.className} ${isAnimating ? 'field-updated' : ''}`}
+    />
+  );
+};
+
+const AnimatedSelect = ({ value, ...props }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => setIsAnimating(false), 1500);
+      prevValue.current = value;
+      return () => clearTimeout(timer);
+    }
+  }, [value]);
+
+  return (
+    <select 
+      {...props} 
+      value={value || ''} 
+      className={`${props.className} ${isAnimating ? 'field-updated' : ''}`}
+    />
+  );
+};
 
 const FormPanel = () => {
   const formState = useSelector(state => state.form);
@@ -48,82 +115,65 @@ const FormPanel = () => {
   };
 
   return (
-    <div style={{ padding: '1.5rem', height: '100%', overflowY: 'auto', fontFamily: 'Inter, sans-serif' }}>
-      <h2 style={{ marginBottom: '1.5rem', color: '#111' }}>Interaction Details</h2>
+    <div className="form-panel">
+      <h2 className="form-title">Interaction Details</h2>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2.5rem' }}>
-        <label style={{ display: 'flex', flexDirection: 'column', fontWeight: '500', color: '#444' }}>
-          HCP Name
-          <input 
+        <div className="form-group">
+          <label className="form-label">HCP Name</label>
+          <AnimatedInput 
             type="text" 
             name="hcp_name" 
-            value={formState.hcp_name || ''} 
+            value={formState.hcp_name} 
             onChange={handleChange} 
-            style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }} 
+            className="form-input"
           />
-        </label>
+        </div>
         
-        <label style={{ display: 'flex', flexDirection: 'column', fontWeight: '500', color: '#444' }}>
-          Topics Discussed
-          <textarea 
+        <div className="form-group">
+          <label className="form-label">Topics Discussed</label>
+          <AnimatedTextarea 
             name="topics_discussed" 
-            value={formState.topics_discussed || ''} 
+            value={formState.topics_discussed} 
             onChange={handleChange} 
-            style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc', minHeight: '100px' }} 
+            className="form-textarea"
           />
-        </label>
+        </div>
         
-        <label style={{ display: 'flex', flexDirection: 'column', fontWeight: '500', color: '#444' }}>
-          Sentiment
-          <select 
+        <div className="form-group">
+          <label className="form-label">Sentiment</label>
+          <AnimatedSelect 
             name="sentiment" 
             value={formState.sentiment || 'Neutral'} 
             onChange={handleChange} 
-            style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccc' }}
+            className="form-select"
           >
             <option value="Positive">Positive</option>
             <option value="Neutral">Neutral</option>
             <option value="Negative">Negative</option>
-          </select>
-        </label>
+          </AnimatedSelect>
+        </div>
 
         {/* Arrays for Materials & Samples read-only views for demo purposes */}
-        <div style={{ backgroundColor: '#f4f6f8', padding: '1rem', borderRadius: '6px' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong style={{ color: '#333' }}>Materials Shared:</strong> {formState.materials_shared?.length > 0 ? formState.materials_shared.join(', ') : 'None'}
+        <div className="form-readonly-box">
+          <div className="form-readonly-item">
+            <strong>Materials Shared:</strong> {formState.materials_shared?.length > 0 ? formState.materials_shared.join(', ') : 'None'}
           </div>
-          <div>
-            <strong style={{ color: '#333' }}>Samples Distributed:</strong> {formState.samples_distributed?.length > 0 ? formState.samples_distributed.join(', ') : 'None'}
+          <div className="form-readonly-item">
+            <strong>Samples Distributed:</strong> {formState.samples_distributed?.length > 0 ? formState.samples_distributed.join(', ') : 'None'}
           </div>
         </div>
       </div>
       
       <button 
         onClick={handleLog} 
-        style={{ 
-          width: '100%', 
-          padding: '1rem', 
-          backgroundColor: '#00c853', 
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '8px', 
-          cursor: 'pointer', 
-          fontSize: '1rem',
-          fontWeight: 'bold',
-          transition: 'background-color 0.2s'
-        }}
+        className="btn-primary"
       >
         Log Interaction
       </button>
       
       {feedback.message && (
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '1rem', 
-          borderRadius: '6px',
-          backgroundColor: feedback.type === 'success' ? '#e8f5e9' : feedback.type === 'error' ? '#ffebee' : '#e3f2fd',
-          color: feedback.type === 'success' ? '#2e7d32' : feedback.type === 'error' ? '#c62828' : '#1565c0'
-        }}>
+        <div className={`feedback-msg feedback-${feedback.type}`}>
           {feedback.message}
         </div>
       )}

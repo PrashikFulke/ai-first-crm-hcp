@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { streamChat } from '../services/api';
 
@@ -7,6 +7,15 @@ const ChatPanel = () => {
   const messages = useSelector(state => state.chat.messages);
   const formState = useSelector(state => state.form);
   const dispatch = useDispatch();
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -18,49 +27,38 @@ const ChatPanel = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'Inter, sans-serif' }}>
+    <div className="chat-panel">
       
+      {/* Chat Header */}
+      <div className="chat-header" style={{ padding: '1.5rem 2rem 0 2rem' }}>
+        <h2 style={{ margin: '0 0 0.25rem 0', color: 'var(--color-text-main)', fontSize: '1.75rem' }}>Ai-Assistant 🛠️</h2>
+        <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--color-text-muted)', fontSize: '0.95rem' }}>
+          Type the information you have and the form will be filled accordingly by me
+        </p>
+      </div>
+
       {/* Messages Render Area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', backgroundColor: '#f8f9fa' }}>
+      <div className="chat-messages">
         {messages.map((msg, idx) => (
-          <div key={idx} style={{ marginBottom: '1rem', textAlign: msg.role === 'user' ? 'right' : 'left' }}>
-            <div style={{ 
-              display: 'inline-block', 
-              padding: '0.85rem 1rem', 
-              borderRadius: '12px',
-              maxWidth: '80%',
-              lineHeight: '1.4',
-              backgroundColor: msg.role === 'user' ? '#0066ff' : '#ffffff',
-              color: msg.role === 'user' ? 'white' : '#333',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
-              border: msg.role === 'assistant' ? '1px solid #eaeaea' : 'none',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {msg.content || <span style={{ color: '#aaa' }}>Thinking...</span>}
+          <div key={idx} className={`chat-message-row ${msg.role === 'user' ? 'user' : 'ai'}`}>
+            <div className={`chat-bubble ${msg.role === 'user' ? 'user' : 'ai'}`}>
+              {msg.content || <span style={{ opacity: 0.6 }}>Thinking...</span>}
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
       
       {/* Chat Input */}
-      <form onSubmit={handleSend} style={{ display: 'flex', padding: '1rem', borderTop: '1px solid #e0e0e0', backgroundColor: '#fff' }}>
+      <form onSubmit={handleSend} className="chat-input-container">
         <input 
           type="text" 
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Type notes or request a correction..."
-          style={{ flex: 1, padding: '0.85rem', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }}
+          className="chat-input"
         />
-        <button type="submit" style={{ 
-          marginLeft: '0.5rem', 
-          padding: '0 1.5rem', 
-          backgroundColor: '#0066ff', 
-          color: 'white', 
-          border: 'none', 
-          borderRadius: '8px', 
-          cursor: 'pointer',
-          fontWeight: '600'
-        }}>
+        <button type="submit" className="chat-send-btn">
           Send
         </button>
       </form>

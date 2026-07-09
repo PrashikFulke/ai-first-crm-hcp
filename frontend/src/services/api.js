@@ -4,10 +4,49 @@ import { updateFormState } from '../store/formSlice';
 const BASE_URL = 'http://localhost:8000/api/v1';
 
 export const submitInteraction = async (formState) => {
+  let resolvedHcpId = formState.hcp_id;
+
+  // 1. Auto-Resolve HCP ID
+  if (!resolvedHcpId && formState.hcp_name) {
+    try {
+      const searchRes = await fetch(`${BASE_URL}/hcps/search?q=${encodeURIComponent(formState.hcp_name)}`);
+      if (searchRes.ok) {
+        const hcps = await searchRes.json();
+        if (hcps && hcps.length > 0) {
+          resolvedHcpId = hcps[0].id;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to auto-resolve HCP ID", e);
+    }
+  }
+
+  // Fallback to a valid UUID if nothing is found (prevents null constraint error for UUID type)
+  if (!resolvedHcpId) {
+    resolvedHcpId = "00000000-0000-0000-0000-000000000000";
+  }
+
+  // 2. Build the Strict Payload
+  const payload = {
+    hcp_id: resolvedHcpId,
+    hcp_name: formState.hcp_name || "",
+    interaction_type: formState.interaction_type || "In-Person",
+    interaction_date: new Date().toISOString().split('T')[0],
+    interaction_time: new Date().toTimeString().split(' ')[0],
+    topics_discussed: formState.topics_discussed || "",
+    sentiment: formState.sentiment || "Neutral",
+    outcomes: formState.outcomes || "Pending",
+    attendee_names: formState.attendees || formState.attendee_names || [],
+    materials_shared: formState.materials || formState.materials_shared || [],
+    samples_distributed: formState.samples || formState.samples_distributed || [],
+    follow_up_actions: formState.follow_ups || formState.follow_up_actions || []
+  };
+
+  // 3. Execute the Post
   const response = await fetch(`${BASE_URL}/interactions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(formState)
+    body: JSON.stringify(payload)
   });
   
   if (!response.ok) {

@@ -16,7 +16,8 @@ class FollowUpActionCreate(BaseModel):
     status: str = "Pending"
 
 class InteractionCreate(BaseModel):
-    hcp_id: UUID
+    hcp_id: Optional[UUID] = None
+    hcp_name: Optional[str] = None
     interaction_type: str
     interaction_date: date
     interaction_time: time
