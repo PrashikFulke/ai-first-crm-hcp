@@ -67,10 +67,16 @@ def state_synchronizer(state: AgentState):
             try:
                 data = json.loads(msg.content)
                 if "error" not in data:
-                    for k, v in data.items():
-                        # Only update if the value is meaningful and explicitly provided
-                        if v is not None and v != "" and v != [] and v != "HCP" and k not in ["history", "follow_ups", "resolved"]:
-                            pending_updates[k] = v
+                    if msg.name == "edit_interaction" and "updates" in data:
+                        for update in data["updates"]:
+                            field = update["field_name"]
+                            val = update["new_value"]
+                            pending_updates[field] = val
+                    else:
+                        for k, v in data.items():
+                            # Only update if the value is meaningful and explicitly provided
+                            if v is not None and v != "" and v != [] and v != "HCP" and k not in ["history", "follow_ups", "resolved"]:
+                                pending_updates[k] = v
             except json.JSONDecodeError:
                 pass
         # Stop scanning once we hit the user's original message for this turn

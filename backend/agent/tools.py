@@ -2,6 +2,7 @@ import os
 import json
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Session
 # Import database and models from parent directory
 from database import SessionLocal
 import models
+
+# Shared system prompts — single source of truth for all LLM-calling tools.
+from agent.prompts import EXTRACTION_SYSTEM_PROMPT, PATCH_SYSTEM_PROMPT
 
 def get_session() -> Session:
     """Helper to get a database session."""
@@ -48,7 +52,13 @@ def log_interaction(text_input: str) -> str:
         # llama-3.1-8b-instant: fast, cheap model appropriate for deterministic field extraction (temperature=0).
         llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
         structured_llm = llm.with_structured_output(InteractionExtraction)
-        result = structured_llm.invoke(text_input)
+        # Two-message structure: system prompt carries grounding rules + few-shot examples;
+        # human message carries only the raw rep notes to be extracted.
+        messages = [
+            SystemMessage(content=EXTRACTION_SYSTEM_PROMPT),
+            HumanMessage(content=text_input),
+        ]
+        result = structured_llm.invoke(messages)
         return result.model_dump_json()
     except Exception as e:
         return json.dumps({"error": f"Failed to extract interaction data: {str(e)}"})
@@ -60,12 +70,17 @@ def edit_interaction(correction_text: str, current_form: dict) -> str:
         # llama-3.1-8b-instant: fast, cheap model appropriate for deterministic patch generation (temperature=0).
         llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
         structured_llm = llm.with_structured_output(InteractionPatch)
-        prompt = (
-            f"Current form state: {json.dumps(current_form)}\n"
-            f"Correction requested: {correction_text}\n"
-            f"Only return the specific fields that the user explicitly wants to change. Do not return or guess any other fields."
+        # The human turn combines the current form state with the correction request
+        # so the model has full context for turn isolation.
+        user_turn = (
+            f"Current form state:\n{json.dumps(current_form, indent=2)}\n\n"
+            f"Correction requested: {correction_text}"
         )
-        result = structured_llm.invoke(prompt)
+        messages = [
+            SystemMessage(content=PATCH_SYSTEM_PROMPT),
+            HumanMessage(content=user_turn),
+        ]
+        result = structured_llm.invoke(messages)
         # exclude_none=True produces a clean patch — only explicitly changed fields are returned.
         return result.model_dump_json(exclude_none=True)
     except Exception as e:
