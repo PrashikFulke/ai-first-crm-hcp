@@ -29,30 +29,13 @@ class InteractionExtraction(BaseModel):
     materials_shared: List[str] = Field(default_factory=list, description="List of materials shared.")
     samples_distributed: List[str] = Field(default_factory=list, description="List of samples distributed.")
 
-class FieldUpdate(BaseModel):
-    field_name: Literal[
-        "hcp_name", 
-        "interaction_date",
-        "interaction_time",
-        "interaction_type", 
-        "topics_discussed", 
-        "sentiment", 
-        "materials_shared", 
-        "samples_distributed",
-        "outcomes"
-    ] = Field(
-        description="The exact name of the field to update."
-    )
-    new_value: Union[str, List[str]] = Field(description="The new value for this field. Can be a string or a list of strings depending on the field.")
-
 class EditInteractionSchema(BaseModel):
-    updates: List[FieldUpdate] = Field(
+    updates: Dict[str, Any] = Field(
         ..., 
         description=(
-            "CRITICAL: This MUST be a JSON array (list) of objects, even if there is only one update. "
-            "DO NOT pass a dictionary. "
-            "Correct Example: [{'field_name': 'sentiment', 'new_value': 'Neutral'}] "
-            "Incorrect Example: {'sentiment': 'Neutral'}"
+            "A dictionary of fields to update and their new values. "
+            "Valid keys are: 'sentiment', 'materials_shared', 'outcomes', etc. "
+            "Example: {'sentiment': 'Neutral', 'materials_shared': ['1 brochure']}"
         )
     )
 
@@ -167,7 +150,7 @@ def resolve_materials_and_samples(item_names: List[str]) -> str:
         db.close()
 
 @tool
-def draft_existing_interaction(hcp_name: str, updates: Optional[list] = None) -> str:
+def draft_existing_interaction(hcp_name: str, updates: Optional[dict] = None) -> str:
     """USE THIS TOOL FOR EDITING HISTORICAL RECORDS: Queries the database for the most recent interaction matching the hcp_name, applies any optional updates to it in memory, and returns the full interaction record as a draft (including interaction_id)."""
     db: Session = get_session()
     try:
@@ -200,9 +183,7 @@ def draft_existing_interaction(hcp_name: str, updates: Optional[list] = None) ->
         
         # Apply updates if requested immediately
         if updates:
-            for update in updates:
-                field = update.get("field_name")
-                val = update.get("new_value")
+            for field, val in updates.items():
                 if field in draft:
                     draft[field] = val
                     

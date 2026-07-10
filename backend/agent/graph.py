@@ -92,11 +92,9 @@ def state_synchronizer(state: AgentState):
                     if msg.name == "edit_interaction":
                         try:
                             # Handle both dicts and Pydantic models gracefully
-                            updates_list = data.get("updates", []) if isinstance(data, dict) else getattr(data, "updates", [])
+                            update_dict = data.get("updates", {}) if isinstance(data, dict) else getattr(data, "updates", {})
                             
-                            for update in updates_list:
-                                field = update["field_name"] if isinstance(update, dict) else update.field_name
-                                val = update["new_value"] if isinstance(update, dict) else update.new_value
+                            for field, val in update_dict.items():
                                 pending_updates[field] = val
                         except Exception as e:
                             print(f"Edit Tool Error: {e}")
