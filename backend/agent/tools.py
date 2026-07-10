@@ -24,7 +24,14 @@ def get_session() -> Session:
 class InteractionExtraction(BaseModel):
     hcp_name: Optional[str] = Field(default=None, description="Name of the Health Care Professional.")
     topics_discussed: Optional[str] = Field(default=None, description="Topics discussed during the interaction.")
-    sentiment: Optional[str] = Field(default=None, description="Sentiment: Positive, Neutral, or Negative.")
+    sentiment: Optional[Literal["Positive", "Neutral", "Negative"]] = Field(
+        None, 
+        description="CRITICAL: You must extract the sentiment. MUST be EXACTLY one of these strings: 'Positive', 'Neutral', or 'Negative'. Pay close attention to negative words like 'argued' or 'not happy'."
+    )
+    outcomes: Optional[str] = Field(
+        None,
+        description="CRITICAL: Any follow-up actions, reminders, or outcomes mentioned by the user (e.g., 'remind me to email'). Do not leave this blank if the user mentions next steps."
+    )
     # Field names deliberately match the Redux formSlice keys so state_synchronizer can merge them directly.
     materials_shared: List[str] = Field(default_factory=list, description="List of materials shared.")
     samples_distributed: List[str] = Field(default_factory=list, description="List of samples distributed.")
@@ -43,7 +50,13 @@ class FieldUpdate(BaseModel):
     ] = Field(
         description="The exact name of the field to update."
     )
-    new_value: Union[str, List[str]] = Field(description="The new value for this field. Can be a string or a list of strings depending on the field.")
+    new_value: Union[str, List[str]] = Field(
+        description=(
+            "The new value for the field. "
+            "RULE: If field_name is 'sentiment', this MUST be exactly 'Positive', 'Neutral', or 'Negative' (Title Case). "
+            "RULE: If field_name is 'materials_shared' or 'samples_distributed', pass a list of strings."
+        )
+    )
 
 class EditInteractionSchema(BaseModel):
     updates: List[FieldUpdate] = Field(
