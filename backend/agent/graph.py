@@ -89,11 +89,17 @@ def state_synchronizer(state: AgentState):
             try:
                 data = json.loads(msg.content)
                 if "error" not in data:
-                    if msg.name == "edit_interaction" and "updates" in data:
-                        for update in data["updates"]:
-                            field = update["field_name"]
-                            val = update["new_value"]
-                            pending_updates[field] = val
+                    if msg.name == "edit_interaction":
+                        try:
+                            # Handle both dicts and Pydantic models gracefully
+                            updates_list = data.get("updates", []) if isinstance(data, dict) else getattr(data, "updates", [])
+                            
+                            for update in updates_list:
+                                field = update["field_name"] if isinstance(update, dict) else update.field_name
+                                val = update["new_value"] if isinstance(update, dict) else update.new_value
+                                pending_updates[field] = val
+                        except Exception as e:
+                            print(f"Edit Tool Error: {e}")
                     elif msg.name == "draft_existing_interaction" and "draft" in data:
                         for k, v in data["draft"].items():
                             pending_updates[k] = v

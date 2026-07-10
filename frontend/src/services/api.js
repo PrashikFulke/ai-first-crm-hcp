@@ -76,6 +76,10 @@ export const streamChat = async (message, currentFormState, dispatch, signal) =>
       signal
     });
 
+    if (!response.ok) {
+      throw new Error(`Server returned status: ${response.status}`);
+    }
+
     if (!response.body) throw new Error('ReadableStream not supported.');
 
     const reader = response.body.getReader();
