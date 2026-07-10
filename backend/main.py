@@ -61,8 +61,13 @@ async def chat_stream(req: ChatRequest):
         async for event in agent_app.astream(initial_state, stream_mode="updates"):
             # Check for form state updates from the state synchronizer
             if "state_synchronizer" in event:
-                form_state = event["state_synchronizer"].get("form_state", {})
+                sync_output = event["state_synchronizer"]
+                form_state = sync_output.get("form_state", {})
+                validation_errors = sync_output.get("validation_errors", [])
                 yield f"event: form_update\ndata: {json.dumps(form_state)}\n\n"
+                # Emit validation errors as a separate event so the UI can surface
+                # mandatory-field warnings without polluting the form_state dict.
+                yield f"event: validation_errors\ndata: {json.dumps(validation_errors)}\n\n"
 
             # Check for text chunks from the LLM (conversational response)
             if "intent_router" in event:

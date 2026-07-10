@@ -1,5 +1,5 @@
 import { appendStreamText, addMessage } from '../store/chatSlice';
-import { updateFormState } from '../store/formSlice';
+import { updateFormState, setValidationErrors } from '../store/formSlice';
 
 const BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -36,10 +36,12 @@ export const submitInteraction = async (formState) => {
     topics_discussed: formState.topics_discussed || "",
     sentiment: formState.sentiment || "Neutral",
     outcomes: formState.outcomes || "Pending",
-    attendee_names: formState.attendees || formState.attendee_names || [],
-    materials_shared: formState.materials || formState.materials_shared || [],
-    samples_distributed: formState.samples || formState.samples_distributed || [],
-    follow_up_actions: formState.follow_ups || formState.follow_up_actions || []
+    // Field names are now consistent: formSlice, InteractionPatch, and InteractionExtraction
+    // all use materials_shared / samples_distributed, so no alias fallback needed.
+    attendee_names: formState.attendee_names || [],
+    materials_shared: formState.materials_shared || [],
+    samples_distributed: formState.samples_distributed || [],
+    follow_up_actions: formState.follow_up_actions || []
   };
 
   // 3. Execute the Post
@@ -107,6 +109,9 @@ export const streamChat = async (message, currentFormState, dispatch) => {
             // Dispatch accordingly based on event type
             if (event === 'form_update') {
               dispatch(updateFormState(data));
+            } else if (event === 'validation_errors') {
+              // Dispatch the errors array returned by the state_synchronizer node.
+              dispatch(setValidationErrors(data));
             } else if (event === 'text_chunk') {
               dispatch(appendStreamText(data.text));
             }

@@ -95,10 +95,11 @@ const FormPanel = () => {
   const handleLog = async () => {
     setFeedback({ type: 'info', message: 'Submitting...' });
     try {
-      // In a real application, you would match the HCP Name string to an actual UUID via typeahead.
-      // We pass a dummy UUID here for demonstration since the API expects one.
+      // Pass hcp_name (not a hardcoded UUID) so that submitInteraction in api.js
+      // can auto-resolve the correct HCP UUID via /hcps/search, or let the backend
+      // create a new HCP on the fly if no match is found.
       const payload = {
-        hcp_id: "00000000-0000-0000-0000-000000000000",
+        hcp_name: formState.hcp_name,
         interaction_type: formState.interaction_type,
         interaction_date: formState.interaction_date,
         interaction_time: formState.interaction_time,
@@ -177,6 +178,26 @@ const FormPanel = () => {
         </div>
       </div>
       
+      {/* Validation errors from the agent's state_synchronizer node */}
+      {formState.validation_errors?.length > 0 && (
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.75rem 1rem',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: '#fff7ed',
+          border: '1px solid #fed7aa',
+          color: '#9a3412',
+          fontSize: '0.875rem'
+        }}>
+          <strong style={{ display: 'block', marginBottom: '0.35rem' }}>⚠ Missing required fields:</strong>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+            {formState.validation_errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <button 
         onClick={handleLog} 
         className="btn-primary"
