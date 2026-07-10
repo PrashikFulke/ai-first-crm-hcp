@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, Literal, Union
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 # Import database and models from parent directory
@@ -24,39 +24,10 @@ def get_session() -> Session:
 class InteractionExtraction(BaseModel):
     hcp_name: Optional[str] = Field(default=None, description="Name of the Health Care Professional.")
     topics_discussed: Optional[str] = Field(default=None, description="Topics discussed during the interaction.")
-    sentiment: Optional[Literal["Positive", "Neutral", "Negative"]] = Field(
-        None, 
-        description="CRITICAL: You must extract the sentiment. MUST be EXACTLY one of these strings: 'Positive', 'Neutral', or 'Negative'. Pay close attention to negative words like 'argued' or 'not happy'."
-    )
-    outcomes: Optional[str] = Field(
-        None,
-        description="CRITICAL: Any follow-up actions, reminders, or outcomes mentioned by the user (e.g., 'remind me to email'). Do not leave this blank if the user mentions next steps."
-    )
+    sentiment: Optional[str] = Field(default=None, description="Sentiment: Positive, Neutral, or Negative.")
     # Field names deliberately match the Redux formSlice keys so state_synchronizer can merge them directly.
     materials_shared: List[str] = Field(default_factory=list, description="List of materials shared.")
     samples_distributed: List[str] = Field(default_factory=list, description="List of samples distributed.")
-
-    @field_validator('sentiment', mode='before')
-    @classmethod
-    def sanitize_sentiment(cls, v):
-        if isinstance(v, str):
-            # Clean string and title case it (e.g. "highly negative" -> "Negative")
-            v = v.strip().title()
-            if "Positive" in v: return "Positive"
-            if "Negative" in v: return "Negative"
-            if "Neutral" in v: return "Neutral"
-        return "Neutral" # Safe fallback
-
-    @field_validator('materials_shared', 'samples_distributed', mode='before')
-    @classmethod
-    def sanitize_lists(cls, v):
-        # If the LLM hallucinates a string "None" or "none", convert to empty list
-        if not v or str(v).lower() == "none":
-            return []
-        # If it passes a single string instead of a list, wrap it in a list
-        if isinstance(v, str):
-            return [v]
-        return v
 
 class FieldUpdate(BaseModel):
     field_name: Literal[
@@ -72,17 +43,17 @@ class FieldUpdate(BaseModel):
     ] = Field(
         description="The exact name of the field to update."
     )
-    new_value: Union[str, List[str]] = Field(
-        description=(
-            "The new value for the field. "
-            "RULE: If field_name is 'sentiment', this MUST be exactly 'Positive', 'Neutral', or 'Negative' (Title Case). "
-            "RULE: If field_name is 'materials_shared' or 'samples_distributed', pass a list of strings."
-        )
-    )
+    new_value: Union[str, List[str]] = Field(description="The new value for this field. Can be a string or a list of strings depending on the field.")
 
 class EditInteractionSchema(BaseModel):
     updates: List[FieldUpdate] = Field(
-        description="A list of explicitly requested changes. ONLY include fields the user explicitly asked to change."
+        ..., 
+        description=(
+            "CRITICAL: This MUST be a JSON array (list) of objects, even if there is only one update. "
+            "DO NOT pass a dictionary. "
+            "Correct Example: [{'field_name': 'sentiment', 'new_value': 'Neutral'}] "
+            "Incorrect Example: {'sentiment': 'Neutral'}"
+        )
     )
 
 class FollowUpSuggestions(BaseModel):
