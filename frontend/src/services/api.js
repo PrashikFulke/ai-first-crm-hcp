@@ -61,7 +61,7 @@ export const submitInteraction = async (formState) => {
   return response.json();
 };
 
-export const streamChat = async (message, currentFormState, dispatch) => {
+export const streamChat = async (message, currentFormState, dispatch, signal) => {
   try {
     // 1. Add user message to chat immediately
     dispatch(addMessage({ role: 'user', content: message }));
@@ -72,7 +72,8 @@ export const streamChat = async (message, currentFormState, dispatch) => {
     const response = await fetch(`${BASE_URL}/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, current_form_state: currentFormState })
+      body: JSON.stringify({ message, current_form_state: currentFormState }),
+      signal
     });
 
     if (!response.body) throw new Error('ReadableStream not supported.');
@@ -126,7 +127,11 @@ export const streamChat = async (message, currentFormState, dispatch) => {
       }
     }
   } catch (error) {
-    console.error('Chat stream error:', error);
-    dispatch(appendStreamText('\n\n[Error: Connection failed]'));
+    if (error.name === 'AbortError') {
+      console.log('Stream aborted by user');
+    } else {
+      console.error('Chat stream error:', error);
+      dispatch(appendStreamText('\n\n[Error: Connection failed]'));
+    }
   }
 };

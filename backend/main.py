@@ -73,22 +73,26 @@ async def chat_stream(req: ChatRequest):
             "validation_errors": []
         }
         
-        async for event in agent_app.astream(initial_state, stream_mode="updates"):
-            for node_name, event_data in event.items():
-                if "form_state" in event_data:
-                    raw_form_state = event_data["form_state"]
-                    mapped_form_state = map_to_frontend_keys(raw_form_state)
-                    yield f"event: form_update\ndata: {json.dumps(mapped_form_state)}\n\n"
-                
-                if "validation_errors" in event_data:
-                    yield f"event: validation_errors\ndata: {json.dumps(event_data['validation_errors'])}\n\n"
+        try:
+            async for event in agent_app.astream(initial_state, stream_mode="updates"):
+                for node_name, event_data in event.items():
+                    if "form_state" in event_data:
+                        raw_form_state = event_data["form_state"]
+                        mapped_form_state = map_to_frontend_keys(raw_form_state)
+                        yield f"event: form_update\ndata: {json.dumps(mapped_form_state)}\n\n"
+                    
+                    if "validation_errors" in event_data:
+                        yield f"event: validation_errors\ndata: {json.dumps(event_data['validation_errors'])}\n\n"
 
-                if node_name == "intent_router":
-                    messages = event_data.get("messages", [])
-                    if messages:
-                        msg = messages[-1]
-                        if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-                            yield f"event: text_chunk\ndata: {json.dumps({'text': msg.content})}\n\n"
+                    if node_name == "intent_router":
+                        messages = event_data.get("messages", [])
+                        if messages:
+                            msg = messages[-1]
+                            if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                                yield f"event: text_chunk\ndata: {json.dumps({'text': msg.content})}\n\n"
+        except Exception as e:
+            # Yield a graceful error message directly to the chat bubble
+            yield f"event: text_chunk\ndata: {json.dumps({'text': f'\\n\\n[System Error: {str(e)}]'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

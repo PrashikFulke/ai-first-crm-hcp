@@ -4,10 +4,12 @@ import { streamChat } from '../services/api';
 
 const ChatPanel = () => {
   const [inputValue, setInputValue] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const messages = useSelector(state => state.chat.messages);
   const formState = useSelector(state => state.form);
   const dispatch = useDispatch();
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -17,13 +19,29 @@ const ChatPanel = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isGenerating) return;
     
-    // Dispatch network request
-    streamChat(inputValue, formState, dispatch);
+    abortControllerRef.current = new AbortController();
+    setIsGenerating(true);
+    
+    const messageToSend = inputValue;
     setInputValue(''); // Clear input instantly
+    
+    try {
+        await streamChat(messageToSend, formState, dispatch, abortControllerRef.current.signal);
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
+  const handleStop = (e) => {
+    e.preventDefault();
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        setIsGenerating(false);
+    }
   };
 
   return (
@@ -73,12 +91,18 @@ const ChatPanel = () => {
             placeholder="Type notes or request a correction..."
             className="chat-input"
           />
-          <button type="submit" className="chat-send-btn" title="Send message">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
+          {isGenerating ? (
+            <button type="button" onClick={handleStop} className="chat-send-btn" title="Stop generating">
+              <div style={{ width: '12px', height: '12px', backgroundColor: 'white', borderRadius: '2px' }} />
+            </button>
+          ) : (
+            <button type="submit" className="chat-send-btn" title="Send message">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          )}
         </div>
       </form>
     </div>

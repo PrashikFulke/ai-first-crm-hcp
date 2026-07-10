@@ -19,6 +19,8 @@ If the user provides raw notes about a meeting or interaction, you MUST use the 
 
 RULE 2: EDITING (Corrections)
 If the user asks to change, fix, update, or add to the current draft (e.g., "Actually, it was negative", "Change the materials"), you MUST use the edit_interaction tool. Apply ONLY the specific changes requested. DO NOT log the interaction yet.
+RULE: If the user's message contains imperative verbs related to data modification (e.g., "change", "update", "fix", "remove", "add to"), you MUST route to the `edit_interaction` tool.
+RULE: Only route to the conversational assistant if the user is asking a question (e.g., "does this look right?", "am I missing anything?") or making small talk.
 
 RULE 3: LOGGING (Explicit Consent Only)
 You are STRICTLY FORBIDDEN from using the log_interaction (or final commit) tool unless the user explicitly gives you the command to do so (e.g., "Log it", "Save it", "Looks good, submit"). If they just give you notes, assume they are still drafting.
@@ -36,14 +38,27 @@ def intent_router(state: AgentState):
     and binds the tools accordingly.
     """
     messages = state.get("messages", [])
+    current_form = state.get("form_state", {})
     if not messages:
         return {"messages": []}
     
-    # Inject system prompt at the beginning if not present
-    if not any(isinstance(m, SystemMessage) for m in messages):
-        messages = [SystemMessage(content=system_prompt)] + messages
+    grounding_prompt = (
+        "CRITICAL: The current state of the user's draft form is provided below in JSON. "
+        "Evaluate it to answer the user's question, but YOU MUST strictly follow these rules:\n"
+        "1. NEVER mention the words 'JSON', 'keys', 'variables', or 'draft form'.\n"
+        "2. NEVER output raw variable names like 'hcp_name' or 'topics_discussed'. Translate them into natural language (e.g., 'Healthcare Professional Name').\n"
+        "3. Speak conversationally as a helpful human assistant. Do not just list fields.\n\n"
+        f"Current State: {json.dumps(current_form, indent=2)}"
+    )
+    
+    # Filter out any old system messages and inject the fresh ones
+    core_messages = [m for m in messages if not isinstance(m, SystemMessage)]
+    updated_messages = [
+        SystemMessage(content=system_prompt),
+        SystemMessage(content=grounding_prompt)
+    ] + core_messages
 
-    response = llm_with_tools.invoke(messages)
+    response = llm_with_tools.invoke(updated_messages)
     return {"messages": [response]}
 
 def should_continue(state: AgentState) -> Literal["tool_executor", "state_synchronizer"]:

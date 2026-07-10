@@ -29,15 +29,26 @@ class InteractionExtraction(BaseModel):
     materials_shared: List[str] = Field(default_factory=list, description="List of materials shared.")
     samples_distributed: List[str] = Field(default_factory=list, description="List of samples distributed.")
 
-class InteractionPatch(BaseModel):
-    hcp_name: Optional[str] = None
-    topics_discussed: Optional[str] = None
-    sentiment: Optional[str] = None
-    # Field names match Redux formSlice keys (materials_shared / samples_distributed) so that
-    # a patch returned by edit_interaction merges correctly into Redux state and triggers
-    # the flashGreen animation on the correct form fields.
-    materials_shared: Optional[List[str]] = None
-    samples_distributed: Optional[List[str]] = None
+class FieldUpdate(BaseModel):
+    field_name: Literal[
+        "hcp_name", 
+        "interaction_date",
+        "interaction_time",
+        "interaction_type", 
+        "topics_discussed", 
+        "sentiment", 
+        "materials_shared", 
+        "samples_distributed",
+        "outcomes"
+    ] = Field(
+        description="The exact name of the field to update."
+    )
+    new_value: Union[str, List[str]] = Field(description="The new value for this field. Can be a string or a list of strings depending on the field.")
+
+class EditInteractionSchema(BaseModel):
+    updates: List[FieldUpdate] = Field(
+        description="A list of explicitly requested changes. ONLY include fields the user explicitly asked to change."
+    )
 
 class FollowUpSuggestions(BaseModel):
     actions: List[str] = Field(description="List of exactly 3 strategic follow-up actions.")
@@ -69,7 +80,7 @@ def edit_interaction(correction_text: str, current_form: dict) -> str:
     try:
         # llama-3.1-8b-instant: fast, cheap model appropriate for deterministic patch generation (temperature=0).
         llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
-        structured_llm = llm.with_structured_output(InteractionPatch)
+        structured_llm = llm.with_structured_output(EditInteractionSchema)
         # The human turn combines the current form state with the correction request
         # so the model has full context for turn isolation.
         user_turn = (
@@ -81,8 +92,7 @@ def edit_interaction(correction_text: str, current_form: dict) -> str:
             HumanMessage(content=user_turn),
         ]
         result = structured_llm.invoke(messages)
-        # exclude_none=True produces a clean patch — only explicitly changed fields are returned.
-        return result.model_dump_json(exclude_none=True)
+        return result.model_dump_json()
     except Exception as e:
         return json.dumps({"error": f"Failed to generate patch: {str(e)}"})
 
@@ -164,7 +174,7 @@ def draft_existing_interaction(hcp_name: str, updates: Optional[list] = None) ->
         )
         
         if not recent_interaction:
-            return json.dumps({"error": f"Could not find any recent logged interactions for {hcp_name}."})
+            return f"Error: No logged interaction found for HCP '{hcp_name}'. Tell the user the record doesn't exist."
             
         # Serialize to dict matching frontend keys
         draft = {
@@ -192,7 +202,7 @@ def draft_existing_interaction(hcp_name: str, updates: Optional[list] = None) ->
                     
         return json.dumps({"draft": draft})
     except Exception as e:
-        return json.dumps({"error": f"Failed to draft interaction: {str(e)}"})
+        return f"Database query failed: {str(e)}. Tell the user there was a system error."
     finally:
         db.close()
 

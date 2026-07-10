@@ -154,6 +154,18 @@ const FormPanel = () => {
         </div>
         
         <div className="form-group">
+          <label className="form-label">Outcomes / Follow-up Actions</label>
+          <AnimatedTextarea 
+            name="outcomes" 
+            value={formState.outcomes} 
+            onChange={handleChange} 
+            placeholder="e.g., Scheduled follow-up for next Tuesday..."
+            className="form-textarea"
+            rows="3"
+          />
+        </div>
+        
+        <div className="form-group">
           <label className="form-label">Sentiment</label>
           <AnimatedRadioGroup 
             name="sentiment" 
