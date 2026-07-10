@@ -165,23 +165,28 @@ def draft_existing_interaction(hcp_name: str, updates: Optional[dict] = None) ->
         if not recent_interaction:
             return f"Error: No logged interaction found for HCP '{hcp_name}'. Tell the user the record doesn't exist."
             
-        # Serialize to dict matching frontend keys
         draft = {
             "interaction_id": str(recent_interaction.id),
-            "hcp_name": recent_interaction.hcp_name or (recent_interaction.hcp.name if recent_interaction.hcp else ""),
+            "hcp_name": recent_interaction.hcp.name if recent_interaction.hcp else "",
             "interaction_type": recent_interaction.interaction_type,
-            "interaction_date": recent_interaction.interaction_date,
-            "interaction_time": recent_interaction.interaction_time,
+            "interaction_date": str(recent_interaction.interaction_date),
+            "interaction_time": str(recent_interaction.interaction_time),
             "topics_discussed": recent_interaction.topics_discussed,
-            "sentiment": recent_interaction.sentiment,
+            "sentiment": recent_interaction.sentiment.value if hasattr(recent_interaction.sentiment, 'value') else recent_interaction.sentiment,
             "outcomes": recent_interaction.outcomes,
-            "attendee_names": recent_interaction.attendee_names or [],
-            "materials_shared": recent_interaction.materials_shared or [],
-            "samples_distributed": recent_interaction.samples_distributed or [],
-            "follow_up_actions": recent_interaction.follow_up_actions or [],
+            "attendee_names": [a.name for a in recent_interaction.attendees],
+            "materials_shared": [m.material.name for m in recent_interaction.materials],
+            "samples_distributed": [s.sample.name for s in recent_interaction.samples],
+            "follow_up_actions": [
+                {
+                    "description": f.description,
+                    "is_ai_suggested": f.is_ai_suggested,
+                    "status": f.status,
+                }
+                for f in recent_interaction.follow_ups
+            ],
         }
         
-        # Apply updates if requested immediately
         if updates:
             for field, val in updates.items():
                 if field in draft:
@@ -189,7 +194,7 @@ def draft_existing_interaction(hcp_name: str, updates: Optional[dict] = None) ->
                     
         return json.dumps({"draft": draft})
     except Exception as e:
-        return f"Database query failed: {str(e)}. Tell the user there was a system error."
+        return json.dumps({"error": f"Database query failed: {str(e)}. Tell the user there was a system error."})
     finally:
         db.close()
 
