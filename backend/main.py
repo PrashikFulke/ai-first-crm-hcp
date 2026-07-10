@@ -161,6 +161,31 @@ def create_interaction(
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Transaction failed: {str(e)}")
 
+@app.patch("/api/v1/interactions/{interaction_id}", response_model=schemas.InteractionResponse)
+def update_interaction(
+    interaction_id: str,
+    update_data: schemas.InteractionUpdate,
+    db: Session = Depends(get_db)
+):
+    """Updates a previously logged interaction."""
+    try:
+        interaction = db.query(models.Interaction).filter(models.Interaction.id == interaction_id).first()
+        if not interaction:
+            raise HTTPException(status_code=404, detail="Interaction not found")
+        
+        update_dict = update_data.model_dump(exclude_unset=True)
+        for key, value in update_dict.items():
+            setattr(interaction, key, value)
+            
+        db.commit()
+        db.refresh(interaction)
+        return {"status": "success", "interaction_id": interaction.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Update failed: {str(e)}")
+
 @app.get("/")
 def read_root():
     return {"message": "AI-First CRM API is running."}

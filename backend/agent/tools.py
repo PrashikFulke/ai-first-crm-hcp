@@ -127,5 +127,28 @@ def resolve_materials_and_samples(item_names: List[str]) -> str:
     finally:
         db.close()
 
+@tool
+def update_submitted_interaction(interaction_id: str, updates: dict) -> str:
+    """Updates an already submitted interaction in the database given its ID and fields to update."""
+    db: Session = get_session()
+    try:
+        interaction = db.query(models.Interaction).filter(models.Interaction.id == interaction_id).first()
+        if not interaction:
+            return json.dumps({"error": f"Interaction with ID {interaction_id} not found."})
+        
+        # Valid fields to update
+        valid_fields = ["interaction_type", "interaction_date", "interaction_time", "topics_discussed", "sentiment", "outcomes"]
+        for k, v in updates.items():
+            if k in valid_fields:
+                setattr(interaction, k, v)
+        
+        db.commit()
+        return json.dumps({"success": True, "interaction_id": interaction_id, "updated_fields": list(updates.keys())})
+    except Exception as e:
+        db.rollback()
+        return json.dumps({"error": f"Failed to update interaction: {str(e)}"})
+    finally:
+        db.close()
+
 # List of tools to bind to our LangGraph nodes
-tools = [log_interaction, edit_interaction, search_hcp_history, suggest_followups, resolve_materials_and_samples]
+tools = [log_interaction, edit_interaction, search_hcp_history, suggest_followups, resolve_materials_and_samples, update_submitted_interaction]

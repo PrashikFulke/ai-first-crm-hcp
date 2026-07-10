@@ -33,3 +33,12 @@ class InteractionCreate(BaseModel):
 class InteractionResponse(BaseModel):
     status: str
     interaction_id: UUID
+
+class InteractionUpdate(BaseModel):
+    hcp_id: Optional[UUID] = None
+    interaction_type: Optional[str] = None
+    interaction_date: Optional[date] = None
+    interaction_time: Optional[time] = None
+    topics_discussed: Optional[str] = None
+    sentiment: Optional[SentimentEnum] = None
+    outcomes: Optional[str] = None
