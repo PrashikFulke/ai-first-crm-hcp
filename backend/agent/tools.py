@@ -46,8 +46,8 @@ class FollowUpSuggestions(BaseModel):
 # Tools
 # ---------------------------------------------------------
 @tool
-def log_interaction(text_input: str) -> str:
-    """Extracts hcp_name, topics_discussed, sentiment, materials_shared, and samples_distributed from raw interaction notes."""
+def extract_interaction(text_input: str) -> str:
+    """USE THIS TOOL FOR DRAFTING: Extracts hcp_name, topics_discussed, sentiment, materials_shared, and samples_distributed from raw interaction notes. DO NOT use this for explicit user commands to log/submit the interaction."""
     try:
         # llama-3.1-8b-instant: fast, cheap model appropriate for deterministic field extraction (temperature=0).
         llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
@@ -65,7 +65,7 @@ def log_interaction(text_input: str) -> str:
 
 @tool
 def edit_interaction(correction_text: str, current_form: dict) -> str:
-    """Analyzes a correction against the current form and outputs a JSON patch of fields to update."""
+    """USE THIS TOOL FOR EDITING: Analyzes a correction against the current form and outputs a JSON patch of fields to update. Apply ONLY the specific changes requested."""
     try:
         # llama-3.1-8b-instant: fast, cheap model appropriate for deterministic patch generation (temperature=0).
         llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
@@ -151,28 +151,50 @@ def resolve_materials_and_samples(item_names: List[str]) -> str:
         db.close()
 
 @tool
-def update_submitted_interaction(interaction_id: str, updates: dict) -> str:
-    """Updates an already submitted interaction in the database given its ID and fields to update."""
+def draft_existing_interaction(hcp_name: str, updates: Optional[list] = None) -> str:
+    """USE THIS TOOL FOR EDITING HISTORICAL RECORDS: Queries the database for the most recent interaction matching the hcp_name, applies any optional updates to it in memory, and returns the full interaction record as a draft (including interaction_id)."""
     db: Session = get_session()
     try:
-        interaction = db.query(models.Interaction).filter(models.Interaction.id == interaction_id).first()
-        if not interaction:
-            return json.dumps({"error": f"Interaction with ID {interaction_id} not found."})
+        recent_interaction = (
+            db.query(models.Interaction)
+            .join(models.HCP)
+            .filter(models.HCP.name.ilike(f"%{hcp_name}%"))
+            .order_by(models.Interaction.created_at.desc())
+            .first()
+        )
         
-        # Explicit allowlist — intentionally excludes hcp_id so the agent cannot reassign
-        # an interaction to a different HCP. That operation requires a deliberate human action.
-        valid_fields = ["interaction_type", "interaction_date", "interaction_time", "topics_discussed", "sentiment", "outcomes"]
-        for k, v in updates.items():
-            if k in valid_fields:
-                setattr(interaction, k, v)
+        if not recent_interaction:
+            return json.dumps({"error": f"Could not find any recent logged interactions for {hcp_name}."})
+            
+        # Serialize to dict matching frontend keys
+        draft = {
+            "interaction_id": str(recent_interaction.id),
+            "hcp_name": recent_interaction.hcp_name or (recent_interaction.hcp.name if recent_interaction.hcp else ""),
+            "interaction_type": recent_interaction.interaction_type,
+            "interaction_date": recent_interaction.interaction_date,
+            "interaction_time": recent_interaction.interaction_time,
+            "topics_discussed": recent_interaction.topics_discussed,
+            "sentiment": recent_interaction.sentiment,
+            "outcomes": recent_interaction.outcomes,
+            "attendee_names": recent_interaction.attendee_names or [],
+            "materials_shared": recent_interaction.materials_shared or [],
+            "samples_distributed": recent_interaction.samples_distributed or [],
+            "follow_up_actions": recent_interaction.follow_up_actions or [],
+        }
         
-        db.commit()
-        return json.dumps({"success": True, "interaction_id": interaction_id, "updated_fields": list(updates.keys())})
+        # Apply updates if requested immediately
+        if updates:
+            for update in updates:
+                field = update.get("field_name")
+                val = update.get("new_value")
+                if field in draft:
+                    draft[field] = val
+                    
+        return json.dumps({"draft": draft})
     except Exception as e:
-        db.rollback()
-        return json.dumps({"error": f"Failed to update interaction: {str(e)}"})
+        return json.dumps({"error": f"Failed to draft interaction: {str(e)}"})
     finally:
         db.close()
 
 # List of tools to bind to our LangGraph nodes
-tools = [log_interaction, edit_interaction, search_hcp_history, suggest_followups, resolve_materials_and_samples, update_submitted_interaction]
+tools = [extract_interaction, edit_interaction, search_hcp_history, suggest_followups, resolve_materials_and_samples, draft_existing_interaction]

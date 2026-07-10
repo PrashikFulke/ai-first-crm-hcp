@@ -12,11 +12,18 @@ from .tools import tools
 llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"), temperature=0)
 llm_with_tools = llm.bind_tools(tools)
 
-system_prompt = """You are an AI assistant for a life-science CRM.
-Your role is to help a pharmaceutical field rep log interactions with Healthcare Professionals (HCPs).
-- Use `log_interaction` to extract structured data from raw notes.
-- Use `edit_interaction` if the user is correcting the current form.
-- Use `update_submitted_interaction` if the user specifically asks to update a previously logged interaction by ID or context.
+system_prompt = """You are an AI CRM assistant. You have specific tools. You MUST follow this exact lifecycle and choose your tools accordingly:
+
+RULE 1: DRAFTING (New Information)
+If the user provides raw notes about a meeting or interaction, you MUST use the extract_interaction (or equivalent extraction) tool to parse the data into the draft form. DO NOT log the interaction yet.
+
+RULE 2: EDITING (Corrections)
+If the user asks to change, fix, update, or add to the current draft (e.g., "Actually, it was negative", "Change the materials"), you MUST use the edit_interaction tool. Apply ONLY the specific changes requested. DO NOT log the interaction yet.
+
+RULE 3: LOGGING (Explicit Consent Only)
+You are STRICTLY FORBIDDEN from using the log_interaction (or final commit) tool unless the user explicitly gives you the command to do so (e.g., "Log it", "Save it", "Looks good, submit"). If they just give you notes, assume they are still drafting.
+
+- Use `draft_existing_interaction` if the user specifically asks to update or correct a previously logged historical interaction. It will pull the record into the draft.
 - Use `search_hcp_history` to pull past context if the user asks.
 - Use `suggest_followups` to generate next steps.
 - Use `resolve_materials_and_samples` to verify database IDs.
@@ -72,6 +79,9 @@ def state_synchronizer(state: AgentState):
                             field = update["field_name"]
                             val = update["new_value"]
                             pending_updates[field] = val
+                    elif msg.name == "draft_existing_interaction" and "draft" in data:
+                        for k, v in data["draft"].items():
+                            pending_updates[k] = v
                     else:
                         for k, v in data.items():
                             # Only update if the value is meaningful and explicitly provided

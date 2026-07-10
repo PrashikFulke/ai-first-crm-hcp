@@ -1,6 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
+  interaction_id: null,
   hcp_name: '',
   interaction_type: 'Virtual', // Default interaction type
   interaction_date: new Date().toISOString().split('T')[0], // Today

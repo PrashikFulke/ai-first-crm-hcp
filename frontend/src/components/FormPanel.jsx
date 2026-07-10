@@ -202,7 +202,7 @@ const FormPanel = () => {
         onClick={handleLog} 
         className="btn-primary"
       >
-        Log Interaction
+        {formState.interaction_id ? 'Update Interaction' : 'Log Interaction'}
       </button>
       
       {feedback.message && (

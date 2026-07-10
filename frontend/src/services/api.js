@@ -44,9 +44,13 @@ export const submitInteraction = async (formState) => {
     follow_up_actions: formState.follow_up_actions || []
   };
 
-  // 3. Execute the Post
-  const response = await fetch(`${BASE_URL}/interactions`, {
-    method: 'POST',
+  // 3. Execute the Request (POST for new, PATCH for overwrite)
+  const isUpdate = !!formState.interaction_id;
+  const endpoint = isUpdate ? `${BASE_URL}/interactions/${formState.interaction_id}` : `${BASE_URL}/interactions`;
+  const method = isUpdate ? 'PATCH' : 'POST';
+
+  const response = await fetch(endpoint, {
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });

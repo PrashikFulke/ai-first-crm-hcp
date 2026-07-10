@@ -44,6 +44,21 @@ class ChatRequest(BaseModel):
     current_form_state: Dict[str, Any] = {}
 
 # --- New SSE Chat Endpoint ---
+
+def map_to_frontend_keys(state_dict):
+    # Ensures keys perfectly match the Redux formSlice.js initial state
+    mapping = {
+        "interaction_id": "interaction_id",
+        "hcp_name": "hcp_name",
+        "topics_discussed": "topics_discussed",
+        "interaction_type": "interaction_type",
+        "sentiment": "sentiment",
+        "materials_shared": "materials_shared",
+        "samples_distributed": "samples_distributed",
+        "outcomes": "outcomes"
+    }
+    return {mapping.get(k, k): v for k, v in state_dict.items() if v}
+
 @app.post("/api/v1/chat/stream")
 async def chat_stream(req: ChatRequest):
     """
@@ -59,23 +74,21 @@ async def chat_stream(req: ChatRequest):
         }
         
         async for event in agent_app.astream(initial_state, stream_mode="updates"):
-            # Check for form state updates from the state synchronizer
-            if "state_synchronizer" in event:
-                sync_output = event["state_synchronizer"]
-                form_state = sync_output.get("form_state", {})
-                validation_errors = sync_output.get("validation_errors", [])
-                yield f"event: form_update\ndata: {json.dumps(form_state)}\n\n"
-                # Emit validation errors as a separate event so the UI can surface
-                # mandatory-field warnings without polluting the form_state dict.
-                yield f"event: validation_errors\ndata: {json.dumps(validation_errors)}\n\n"
+            for node_name, event_data in event.items():
+                if "form_state" in event_data:
+                    raw_form_state = event_data["form_state"]
+                    mapped_form_state = map_to_frontend_keys(raw_form_state)
+                    yield f"event: form_update\ndata: {json.dumps(mapped_form_state)}\n\n"
+                
+                if "validation_errors" in event_data:
+                    yield f"event: validation_errors\ndata: {json.dumps(event_data['validation_errors'])}\n\n"
 
-            # Check for text chunks from the LLM (conversational response)
-            if "intent_router" in event:
-                messages = event["intent_router"].get("messages", [])
-                if messages:
-                    msg = messages[-1]
-                    if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-                        yield f"event: text_chunk\ndata: {json.dumps({'text': msg.content})}\n\n"
+                if node_name == "intent_router":
+                    messages = event_data.get("messages", [])
+                    if messages:
+                        msg = messages[-1]
+                        if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                            yield f"event: text_chunk\ndata: {json.dumps({'text': msg.content})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

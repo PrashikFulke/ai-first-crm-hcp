@@ -48,7 +48,14 @@ const ChatPanel = () => {
           return (
             <div key={idx} className={`chat-message-row ${msg.role === 'user' ? 'user' : 'ai'}`}>
               <div className={`chat-bubble ${msg.role === 'user' ? 'user' : 'ai'} ${isSuccess ? 'success-bubble' : ''}`}>
-                {msg.content || <span style={{ opacity: 0.6 }}>Thinking...</span>}
+                {msg.content || (
+                  <span>
+                    Thinking
+                    <span className="typing-dot">.</span>
+                    <span className="typing-dot">.</span>
+                    <span className="typing-dot">.</span>
+                  </span>
+                )}
               </div>
             </div>
           );
