@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, Literal, Union
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 # Import database and models from parent directory
@@ -35,6 +35,28 @@ class InteractionExtraction(BaseModel):
     # Field names deliberately match the Redux formSlice keys so state_synchronizer can merge them directly.
     materials_shared: List[str] = Field(default_factory=list, description="List of materials shared.")
     samples_distributed: List[str] = Field(default_factory=list, description="List of samples distributed.")
+
+    @field_validator('sentiment', mode='before')
+    @classmethod
+    def sanitize_sentiment(cls, v):
+        if isinstance(v, str):
+            # Clean string and title case it (e.g. "highly negative" -> "Negative")
+            v = v.strip().title()
+            if "Positive" in v: return "Positive"
+            if "Negative" in v: return "Negative"
+            if "Neutral" in v: return "Neutral"
+        return "Neutral" # Safe fallback
+
+    @field_validator('materials_shared', 'samples_distributed', mode='before')
+    @classmethod
+    def sanitize_lists(cls, v):
+        # If the LLM hallucinates a string "None" or "none", convert to empty list
+        if not v or str(v).lower() == "none":
+            return []
+        # If it passes a single string instead of a list, wrap it in a list
+        if isinstance(v, str):
+            return [v]
+        return v
 
 class FieldUpdate(BaseModel):
     field_name: Literal[
